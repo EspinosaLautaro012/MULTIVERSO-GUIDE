@@ -1,0 +1,74 @@
+[
+  {
+    "titulo": "Iron Man",
+    "tipo": "pelicula",
+    "anio": 2008,
+    "duracion_min": 126,
+    "fase": "Fase 1",
+    "rating": 7.9,
+    "personajes": ["Tony Stark", "Obadiah Stane"]
+  },
+  {
+    "titulo": "Avengers: Infinity War",
+    "tipo": "pelicula",
+    "anio": 2018,
+    "duracion_min": 149,
+    "fase": "Saga del Infinito",
+    "rating": 8.4,
+    "personajes": ["Tony Stark", "Thanos", "Doctor Strange"]
+  },
+  {
+    "titulo": "Avengers: Endgame",
+    "tipo": "pelicula",
+    "anio": 2019,
+    "duracion_min": 181,
+    "fase": "Saga del Infinito",
+    "rating": 8.4,
+    "personajes": ["Tony Stark", "Thanos", "Steve Rogers"]
+  },
+  {
+    "titulo": "Loki",
+    "tipo": "serie",
+    "anio": 2021,
+    "duracion_min": 330,
+    "fase": "Saga del Multiverso",
+    "rating": 8.2,
+    "personajes": ["Loki", "Kang"]
+  },
+  {
+    "titulo": "Doctor Strange en el Multiverso de la Locura",
+    "tipo": "pelicula",
+    "anio": 2022,
+    "duracion_min": 126,
+    "fase": "Saga del Multiverso",
+    "rating": 6.9,
+    "personajes": ["Doctor Strange", "Wanda Maximoff"]
+  },
+  {
+    "titulo": "Spider-Man: No Way Home",
+    "tipo": "pelicula",
+    "anio": 2021,
+    "duracion_min": 148,
+    "fase": "Saga del Multiverso",
+    "rating": 8.2,
+    "personajes": ["Peter Parker", "Doctor Strange"]
+  },
+  {
+    "titulo": "Deadpool & Wolverine",
+    "tipo": "pelicula",
+    "anio": 2024,
+    "duracion_min": 128,
+    "fase": "Saga del Multiverso",
+    "rating": 7.7,
+    "personajes": ["Deadpool", "Wolverine", "Kang"]
+  },
+  {
+    "titulo": "Secret Invasion",
+    "tipo": "serie",
+    "anio": 2023,
+    "duracion_min": 240,
+    "fase": "Saga del Multiverso",
+    "rating": 5.8,
+    "personajes": ["Nick Fury"]
+  }
+]
