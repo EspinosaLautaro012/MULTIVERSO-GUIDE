@@ -1,15 +1,22 @@
 import json
 import os
 from models.obra import Obra
+from busqueda.arbol import ArbolBusquedaObras
 
 
 class GestorDatos:
     """Carga las obras desde un archivo JSON y ofrece las operaciones
-    principales sobre esos datos: buscar, listar y filtrar."""
+    principales sobre esos datos: buscar, listar y filtrar.
+
+    Desde el TP3, además de la lista plana de obras, se arma un árbol
+    binario de búsqueda (ordenado por título) que se usa para la
+    búsqueda exacta y para listar ordenado — ya no es un árbol aislado
+    de prueba, sino parte real del flujo de datos de la app."""
 
     def __init__(self, ruta_json):
         self._ruta_json = ruta_json
         self._obras = []
+        self._arbol = ArbolBusquedaObras()
         self._cargar_datos()
 
     def _cargar_datos(self):
@@ -32,14 +39,31 @@ class GestorDatos:
             for item in datos
         ]
 
+        for obra in self._obras:
+            self._arbol.insertar(obra)
+
     @property
     def obras(self):
         return list(self._obras)
 
-    # --- Operación 1: Buscar ---
+    # --- Operación 1: Buscar (coincidencia parcial, recorrido secuencial) ---
     def buscar_por_titulo(self, texto):
         texto = texto.lower().strip()
         return [obra for obra in self._obras if texto in obra.titulo.lower()]
+
+    # --- Búsqueda exacta usando el árbol (TP3) ---
+    def buscar_exacto_arbol(self, titulo):
+        """Busca una obra por título EXACTO usando el árbol binario de
+        búsqueda, en vez de recorrer la lista entera. Pensada para cuando
+        se conoce el título completo (ej. al seleccionar de una lista)."""
+        return self._arbol.buscar(titulo.strip())
+
+    # --- Listar ordenado alfabéticamente usando el árbol (TP3) ---
+    def listar_ordenado_por_titulo(self):
+        """Devuelve las obras ordenadas por título usando el recorrido
+        inorder del árbol — más eficiente que ordenar la lista cada vez
+        que se pide, porque el árbol ya mantiene el orden."""
+        return self._arbol.recorrido_inorder()
 
     # --- Operación 2: Listar ---
     def listar_todas(self, orden_por_anio=True):

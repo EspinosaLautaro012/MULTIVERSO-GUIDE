@@ -5,15 +5,17 @@ RUTA_DATOS = os.path.join(os.path.dirname(__file__), "data", "obras.json")
 
 
 def mostrar_menu():
-    print("\n" + "=" * 40)
-    print("           MULTIVERSOGUIDE")
+    print("\n" + "=" * 45)
+    print("           MULTIVERSOGUIDE (v2)")
     print("      Tu guía antes del multiverso")
-    print("=" * 40)
-    print("[1] Buscar obra por título")
-    print("[2] Listar todas las obras")
+    print("=" * 45)
+    print("[1] Buscar obra por título (parcial)")
+    print("[2] Listar todas las obras (por año)")
     print("[3] Filtrar obras")
-    print("[4] Salir")
-    print("=" * 40)
+    print("[4] Buscar obra por título exacto (árbol)")
+    print("[5] Listar ordenado alfabéticamente (árbol)")
+    print("[6] Salir")
+    print("=" * 45)
 
 
 def mostrar_resultados(obras):
@@ -46,6 +48,17 @@ def accion_filtrar(gestor):
     mostrar_resultados(resultados)
 
 
+def accion_buscar_arbol(gestor):
+    titulo = input("Ingresá el título EXACTO: ")
+    obra = gestor.buscar_exacto_arbol(titulo)
+    mostrar_resultados([obra] if obra else [])
+
+
+def accion_listar_arbol(gestor):
+    obras = gestor.listar_ordenado_por_titulo()
+    mostrar_resultados(obras)
+
+
 def main():
     try:
         gestor = GestorDatos(RUTA_DATOS)
@@ -57,13 +70,15 @@ def main():
         "1": accion_buscar,
         "2": accion_listar,
         "3": accion_filtrar,
+        "4": accion_buscar_arbol,
+        "5": accion_listar_arbol,
     }
 
     while True:
         mostrar_menu()
         opcion = input("Elegí una opción: ").strip()
 
-        if opcion == "4":
+        if opcion == "6":
             print("¡Hasta la próxima, viajero del multiverso!")
             break
         elif opcion in acciones:

@@ -47,3 +47,47 @@ class ArbolBusquedaObras:
         if titulo < nodo.obra.titulo:
             return self._buscar_recursivo(nodo.izquierda, titulo)
         return self._buscar_recursivo(nodo.derecha, titulo)
+
+    # --- Recorridos ---
+
+    def recorrido_inorder(self):
+        """Izquierda, raíz, derecha. Devuelve las obras ordenadas
+        alfabéticamente por título — es la base de 'listar ordenado'."""
+        resultado = []
+        self._inorder_recursivo(self._raiz, resultado)
+        return resultado
+
+    def _inorder_recursivo(self, nodo, resultado):
+        if nodo is not None:
+            self._inorder_recursivo(nodo.izquierda, resultado)
+            resultado.append(nodo.obra)
+            self._inorder_recursivo(nodo.derecha, resultado)
+
+    def recorrido_preorder(self):
+        """Raíz, izquierda, derecha. Útil para reconstruir el árbol
+        o para exportar su estructura tal como fue armada."""
+        resultado = []
+        self._preorder_recursivo(self._raiz, resultado)
+        return resultado
+
+    def _preorder_recursivo(self, nodo, resultado):
+        if nodo is not None:
+            resultado.append(nodo.obra)
+            self._preorder_recursivo(nodo.izquierda, resultado)
+            self._preorder_recursivo(nodo.derecha, resultado)
+
+    def recorrido_postorder(self):
+        """Izquierda, derecha, raíz. Útil para operaciones que necesitan
+        procesar primero los nodos hijos (por ejemplo, borrar el árbol)."""
+        resultado = []
+        self._postorder_recursivo(self._raiz, resultado)
+        return resultado
+
+    def _postorder_recursivo(self, nodo, resultado):
+        if nodo is not None:
+            self._postorder_recursivo(nodo.izquierda, resultado)
+            self._postorder_recursivo(nodo.derecha, resultado)
+            resultado.append(nodo.obra)
+
+    def esta_vacio(self):
+        return self._raiz is None
