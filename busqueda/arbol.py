@@ -91,3 +91,16 @@ class ArbolBusquedaObras:
 
     def esta_vacio(self):
         return self._raiz is None
+
+    def altura_total(self):
+        """Altura del árbol completo — se usa para comparar contra el
+        AVL del TP4 en los casos de desbalance."""
+        return self._altura_recursiva(self._raiz)
+
+    def _altura_recursiva(self, nodo):
+        if nodo is None:
+            return 0
+        return 1 + max(
+            self._altura_recursiva(nodo.izquierda),
+            self._altura_recursiva(nodo.derecha),
+        )
