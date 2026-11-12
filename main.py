@@ -7,7 +7,7 @@ RUTA_DATOS = os.path.join(os.path.dirname(__file__), "data", "obras.json")
 
 def mostrar_menu():
     print("\n" + "=" * 45)
-    print("           MULTIVERSOGUIDE (v4)")
+    print("           MULTIVERSOGUIDE (v5)")
     print("      Tu guía antes del multiverso")
     print("=" * 45)
     print("[1] Buscar obra por título (parcial)")
@@ -18,7 +18,8 @@ def mostrar_menu():
     print("[6] Explorar categorías (árbol general)")
     print("[7] Top imprescindibles (ranking)")
     print("[8] Marcar una obra como vista")
-    print("[9] Salir")
+    print("[9] Explorar conexiones (grafo)")
+    print("[10] Salir")
     print("=" * 45)
 
 
@@ -150,6 +151,98 @@ def accion_marcar_vista(gestor, usuario):
     print(f"\nListo, '{obra.titulo}' queda marcada como vista.")
 
 
+def _pedir_obra(gestor, mensaje):
+    """Pide un título (puede ser parcial) y devuelve la obra elegida,
+    o None si no hay una coincidencia única."""
+    texto = input(mensaje)
+    coincidencias = gestor.buscar_por_titulo(texto)
+    if not coincidencias:
+        print("\nNo se encontró ninguna obra con ese texto.")
+        return None
+    if len(coincidencias) > 1:
+        print("\nHay varias coincidencias, escribí un poco más del título:")
+        for obra in coincidencias:
+            print(f"  - {obra.titulo}")
+        return None
+    return coincidencias[0]
+
+
+def _ver_conectadas(gestor):
+    obra = _pedir_obra(gestor, "Obra (título o parte del título): ")
+    if obra is None:
+        return
+    conectadas = gestor.obras_conectadas(obra.titulo)
+    if not conectadas:
+        print(f"\n'{obra.titulo}' no comparte personajes con ninguna otra obra del catálogo.")
+        return
+    print(f"\nObras conectadas con '{obra.titulo}':")
+    for otra, personajes in conectadas:
+        print(f"  - {otra.titulo}  (comparten: {', '.join(personajes)})")
+
+
+def _ver_conexion_entre_dos(gestor):
+    obra_a = _pedir_obra(gestor, "Primera obra: ")
+    if obra_a is None:
+        return
+    obra_b = _pedir_obra(gestor, "Segunda obra: ")
+    if obra_b is None:
+        return
+    if obra_a.titulo == obra_b.titulo:
+        print("\nEscribiste la misma obra dos veces.")
+        return
+    comunes = gestor.conexion_entre(obra_a.titulo, obra_b.titulo)
+    if comunes:
+        print(f"\n'{obra_a.titulo}' y '{obra_b.titulo}' están conectadas.")
+        print(f"Personajes en común: {', '.join(comunes)}")
+    else:
+        print(f"\n'{obra_a.titulo}' y '{obra_b.titulo}' NO están conectadas directamente.")
+
+
+def _ver_grafo_completo(gestor):
+    grafo = gestor.grafo
+    print("\nLista de adyacencia (cada obra y las obras con las que se conecta):\n")
+    for obra in sorted(grafo.vertices(), key=lambda o: o.titulo):
+        vecinos = [a.destino for a in grafo.vecinos(obra.titulo)]
+        detalle = ", ".join(vecinos) if vecinos else "(sin conexiones)"
+        print(f"{obra.titulo}\n    -> {detalle}")
+
+
+def _ver_estadisticas_grafo(gestor):
+    grafo = gestor.grafo
+    print("\nEstadísticas del grafo:")
+    print(f"  Obras (vértices):          {grafo.cantidad_vertices()}")
+    print(f"  Conexiones entre obras:    {grafo.cantidad_aristas() // 2}")
+    print(f"  Densidad:                  {grafo.densidad():.1%}")
+    mas_conectada = max(grafo.vertices(), key=lambda o: grafo.grado(o.titulo))
+    print(f"  Obra más conectada:        {mas_conectada.titulo} ({grafo.grado(mas_conectada.titulo)} conexiones)")
+    aislados = grafo.aislados()
+    if aislados:
+        print("  Obras sin conexiones:      " + ", ".join(o.titulo for o in aislados))
+
+
+def accion_explorar_conexiones(gestor):
+    while True:
+        print("\n--- EXPLORAR CONEXIONES ---")
+        print("[a] Ver obras conectadas con una obra")
+        print("[b] Ver qué comparten dos obras")
+        print("[c] Ver el grafo completo")
+        print("[d] Ver estadísticas del grafo")
+        print("[e] Volver")
+        opcion = input("Elegí: ").strip().lower()
+        if opcion == "a":
+            _ver_conectadas(gestor)
+        elif opcion == "b":
+            _ver_conexion_entre_dos(gestor)
+        elif opcion == "c":
+            _ver_grafo_completo(gestor)
+        elif opcion == "d":
+            _ver_estadisticas_grafo(gestor)
+        elif opcion == "e":
+            break
+        else:
+            print("Opción inválida.")
+
+
 def main():
     try:
         gestor = GestorDatos(RUTA_DATOS)
@@ -166,13 +259,14 @@ def main():
         "4": accion_buscar_arbol,
         "5": accion_listar_arbol,
         "6": accion_explorar_categorias,
+        "9": accion_explorar_conexiones,
     }
 
     while True:
         mostrar_menu()
         opcion = input("Elegí una opción: ").strip()
 
-        if opcion == "9":
+        if opcion == "10":
             print("¡Hasta la próxima, viajero del multiverso!")
             break
         elif opcion == "7":

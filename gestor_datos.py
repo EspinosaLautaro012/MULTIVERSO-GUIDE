@@ -4,6 +4,7 @@ from models.obra import Obra
 from busqueda.arbol import ArbolBusquedaObras
 from busqueda.arbol_general import ArbolGeneral
 from busqueda.heap import HeapMaximos
+from busqueda.grafo import Grafo, construir_grafo_por_personajes
 from busqueda.prioridad import calcular_prioridad
 
 NOMBRES_TIPO = {"pelicula": "Películas", "serie": "Series", "comic": "Cómics"}
@@ -39,6 +40,7 @@ class GestorDatos:
         self._obras = []
         self._arbol = ArbolBusquedaObras()
         self._jerarquia = ArbolGeneral("Marvel")
+        self._grafo = Grafo()
         self._cargar_datos()
 
     def _cargar_datos(self):
@@ -65,6 +67,7 @@ class GestorDatos:
             self._arbol.insertar(obra)
 
         self._construir_jerarquia()
+        self._construir_grafo()
 
     def _construir_jerarquia(self):
         """Arma el árbol general: Marvel -> Saga -> Tipo -> Obra."""
@@ -142,3 +145,27 @@ class GestorDatos:
         ]
         heap = HeapMaximos.desde_lista(elementos)
         return heap.top_n(n)
+
+    # --- Grafo de conexiones entre obras (TP7) ---
+    def _construir_grafo(self):
+        """Arma el grafo de conexiones (ver construir_grafo_por_personajes)."""
+        self._grafo = construir_grafo_por_personajes(self._obras)
+
+    @property
+    def grafo(self):
+        return self._grafo
+
+    def obras_conectadas(self, titulo):
+        """Obras conectadas con la dada, como lista de (obra, personajes en
+        común). Primero las que más personajes comparten."""
+        resultado = [
+            (self._grafo.obtener_obra(a.destino), a.personajes)
+            for a in self._grafo.vecinos(titulo)
+        ]
+        resultado.sort(key=lambda par: (-len(par[1]), par[0].titulo))
+        return resultado
+
+    def conexion_entre(self, titulo_a, titulo_b):
+        """Personajes que comparten dos obras, o None si no están conectadas."""
+        arista = self._grafo.obtener_arista(titulo_a, titulo_b)
+        return list(arista.personajes) if arista else None
