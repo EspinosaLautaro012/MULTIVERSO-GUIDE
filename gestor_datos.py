@@ -2,6 +2,25 @@ import json
 import os
 from models.obra import Obra
 from busqueda.arbol import ArbolBusquedaObras
+from busqueda.arbol_general import ArbolGeneral
+
+NOMBRES_TIPO = {"pelicula": "Películas", "serie": "Series", "comic": "Cómics"}
+
+
+def saga_de(fase):
+    """Devuelve el nombre de la saga a la que pertenece una fase.
+    Fases 1-3 -> Saga del Infinito, fases 4-6 -> Saga del Multiverso.
+    Si el dato ya viene como nombre de saga, se respeta tal cual."""
+    texto = fase.lower()
+    if "infinito" in texto:
+        return "Saga del Infinito"
+    if "multiverso" in texto:
+        return "Saga del Multiverso"
+    digitos = [c for c in texto if c.isdigit()]
+    if digitos:
+        numero = int("".join(digitos))
+        return "Saga del Infinito" if numero <= 3 else "Saga del Multiverso"
+    return fase
 
 
 class GestorDatos:
@@ -17,6 +36,7 @@ class GestorDatos:
         self._ruta_json = ruta_json
         self._obras = []
         self._arbol = ArbolBusquedaObras()
+        self._jerarquia = ArbolGeneral("Marvel")
         self._cargar_datos()
 
     def _cargar_datos(self):
@@ -41,6 +61,17 @@ class GestorDatos:
 
         for obra in self._obras:
             self._arbol.insertar(obra)
+
+        self._construir_jerarquia()
+
+    def _construir_jerarquia(self):
+        """Arma el árbol general: Marvel -> Saga -> Tipo -> Obra."""
+        for obra in self._obras:
+            saga = self._jerarquia.obtener_o_crear_hijo(
+                self._jerarquia.raiz, saga_de(obra.fase))
+            tipo = self._jerarquia.obtener_o_crear_hijo(
+                saga, NOMBRES_TIPO.get(obra.tipo, obra.tipo.capitalize()))
+            self._jerarquia.agregar_hijo(tipo, obra.titulo, obra)
 
     @property
     def obras(self):
@@ -86,3 +117,8 @@ class GestorDatos:
             ]
 
         return resultado
+
+    # --- Jerarquía de categorías (TP5, árbol general) ---
+    @property
+    def jerarquia(self):
+        return self._jerarquia

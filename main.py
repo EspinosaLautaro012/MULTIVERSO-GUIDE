@@ -6,7 +6,7 @@ RUTA_DATOS = os.path.join(os.path.dirname(__file__), "data", "obras.json")
 
 def mostrar_menu():
     print("\n" + "=" * 45)
-    print("           MULTIVERSOGUIDE (v2)")
+    print("           MULTIVERSOGUIDE (v3)")
     print("      Tu guía antes del multiverso")
     print("=" * 45)
     print("[1] Buscar obra por título (parcial)")
@@ -14,7 +14,8 @@ def mostrar_menu():
     print("[3] Filtrar obras")
     print("[4] Buscar obra por título exacto (árbol)")
     print("[5] Listar ordenado alfabéticamente (árbol)")
-    print("[6] Salir")
+    print("[6] Explorar categorías (árbol general)")
+    print("[7] Salir")
     print("=" * 45)
 
 
@@ -59,6 +60,62 @@ def accion_listar_arbol(gestor):
     mostrar_resultados(obras)
 
 
+def _mostrar_arbol_con_sangria(gestor):
+    print()
+    for nivel, nodo in gestor.jerarquia.recorrido_preorden():
+        marca = "" if nivel == 0 else "└── "
+        if nodo.obra is None:
+            cantidad = gestor.jerarquia.contar_obras(nodo)
+            print("    " * max(nivel - 1, 0) + marca + f"{nodo.nombre} ({cantidad})")
+        else:
+            print("    " * max(nivel - 1, 0) + marca + nodo.nombre)
+
+
+def _mostrar_por_niveles(gestor):
+    print()
+    nivel_actual = -1
+    for nivel, nodo in gestor.jerarquia.recorrido_por_niveles():
+        if nivel != nivel_actual:
+            nivel_actual = nivel
+            print(f"\nNivel {nivel}:")
+        print(f"  - {nodo.nombre}")
+
+
+def _buscar_categoria(gestor):
+    nombre = input("Nombre de la categoría u obra: ")
+    nodo = gestor.jerarquia.buscar(nombre)
+    if nodo is None:
+        print("\nNo se encontró esa categoría ni obra.")
+        return
+    print("\nRuta: " + " > ".join(gestor.jerarquia.camino_a(nodo.nombre)))
+    if nodo.obra is not None:
+        mostrar_resultados([nodo.obra])
+    else:
+        obras = gestor.jerarquia.obras_de(nodo)
+        print(f"Contiene {len(obras)} obra(s):")
+        mostrar_resultados(obras)
+
+
+def accion_explorar_categorias(gestor):
+    while True:
+        print("\n--- EXPLORAR CATEGORÍAS ---")
+        print("[a] Ver el árbol completo")
+        print("[b] Ver por niveles")
+        print("[c] Buscar una categoría u obra (y ver su ruta)")
+        print("[d] Volver")
+        opcion = input("Elegí: ").strip().lower()
+        if opcion == "a":
+            _mostrar_arbol_con_sangria(gestor)
+        elif opcion == "b":
+            _mostrar_por_niveles(gestor)
+        elif opcion == "c":
+            _buscar_categoria(gestor)
+        elif opcion == "d":
+            break
+        else:
+            print("Opción inválida.")
+
+
 def main():
     try:
         gestor = GestorDatos(RUTA_DATOS)
@@ -72,13 +129,14 @@ def main():
         "3": accion_filtrar,
         "4": accion_buscar_arbol,
         "5": accion_listar_arbol,
+        "6": accion_explorar_categorias,
     }
 
     while True:
         mostrar_menu()
         opcion = input("Elegí una opción: ").strip()
 
-        if opcion == "6":
+        if opcion == "7":
             print("¡Hasta la próxima, viajero del multiverso!")
             break
         elif opcion in acciones:
