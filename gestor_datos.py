@@ -5,6 +5,7 @@ from busqueda.arbol import ArbolBusquedaObras
 from busqueda.arbol_general import ArbolGeneral
 from busqueda.heap import HeapMaximos
 from busqueda.grafo import Grafo, construir_grafo_por_personajes
+from busqueda import recorridos
 from busqueda.prioridad import calcular_prioridad
 
 NOMBRES_TIPO = {"pelicula": "Películas", "serie": "Series", "comic": "Cómics"}
@@ -169,3 +170,38 @@ class GestorDatos:
         """Personajes que comparten dos obras, o None si no están conectadas."""
         arista = self._grafo.obtener_arista(titulo_a, titulo_b)
         return list(arista.personajes) if arista else None
+
+    # --- Recorridos del grafo (TP8, BFS y DFS) ---
+    def camino_mas_corto(self, titulo_a, titulo_b):
+        """Cadena con menos obras entre dos obras (BFS), como lista de
+        Obra desde la primera hasta la última; None si no hay camino."""
+        titulos = recorridos.camino_mas_corto(self._grafo, titulo_a, titulo_b)
+        if titulos is None:
+            return None
+        return [self._grafo.obtener_obra(t) for t in titulos]
+
+    def obras_por_distancia(self, titulo):
+        """Obras alcanzables desde una obra, con su distancia en conexiones
+        (BFS), de las más cercanas a las más lejanas. No incluye al origen."""
+        return [
+            (self._grafo.obtener_obra(t), distancia)
+            for t, distancia in recorridos.bfs(self._grafo, titulo)
+            if distancia > 0
+        ]
+
+    def explorar_en_profundidad(self, titulo):
+        """Recorrido en profundidad (DFS) desde una obra, como lista de
+        (Obra, profundidad). Incluye al origen con profundidad 0."""
+        return [
+            (self._grafo.obtener_obra(t), profundidad)
+            for t, profundidad in recorridos.dfs(self._grafo, titulo)
+        ]
+
+    def grupos_conectados(self):
+        """Grupos de obras conectadas entre sí (DFS), de mayor a menor."""
+        grupos = [
+            [self._grafo.obtener_obra(t) for t in grupo]
+            for grupo in recorridos.componentes_conexas(self._grafo)
+        ]
+        grupos.sort(key=len, reverse=True)
+        return grupos

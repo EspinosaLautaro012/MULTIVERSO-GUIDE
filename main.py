@@ -7,7 +7,7 @@ RUTA_DATOS = os.path.join(os.path.dirname(__file__), "data", "obras.json")
 
 def mostrar_menu():
     print("\n" + "=" * 45)
-    print("           MULTIVERSOGUIDE (v5)")
+    print("           MULTIVERSOGUIDE (v6)")
     print("      Tu guía antes del multiverso")
     print("=" * 45)
     print("[1] Buscar obra por título (parcial)")
@@ -220,6 +220,80 @@ def _ver_estadisticas_grafo(gestor):
         print("  Obras sin conexiones:      " + ", ".join(o.titulo for o in aislados))
 
 
+def _formato_duracion(minutos):
+    horas, resto = divmod(minutos, 60)
+    return f"{horas} h {resto} min" if horas else f"{resto} min"
+
+
+def _ver_camino_mas_corto(gestor):
+    origen = _pedir_obra(gestor, "Obra que ya viste (origen): ")
+    if origen is None:
+        return
+    destino = _pedir_obra(gestor, "Obra que querés ver (destino): ")
+    if destino is None:
+        return
+    if origen.titulo == destino.titulo:
+        print("\nEscribiste la misma obra dos veces.")
+        return
+
+    camino = gestor.camino_mas_corto(origen.titulo, destino.titulo)
+    if camino is None:
+        print(f"\nNo hay ningún camino entre '{origen.titulo}' y '{destino.titulo}': "
+              "no están en el mismo grupo de obras conectadas.")
+        return
+
+    print(f"\nCamino con menos obras de '{origen.titulo}' a '{destino.titulo}':")
+    print(f"  0. {camino[0].titulo}  (donde empezás)")
+    for numero in range(1, len(camino)):
+        personajes = gestor.conexion_entre(camino[numero - 1].titulo, camino[numero].titulo)
+        print(f"  {numero}. {camino[numero].titulo}  (se conecta con la anterior por: {', '.join(personajes)})")
+    minutos = sum(obra.duracion_min for obra in camino[1:])
+    print(f"\nTe faltaría ver {len(camino) - 1} obra(s): {_formato_duracion(minutos)} en total.")
+    print("(Es el camino con menos obras, no necesariamente el de menos minutos.)")
+
+
+def _ver_obras_por_distancia(gestor):
+    obra = _pedir_obra(gestor, "Obra de partida (título o parte del título): ")
+    if obra is None:
+        return
+    resultado = gestor.obras_por_distancia(obra.titulo)
+    if not resultado:
+        print(f"\n'{obra.titulo}' no está conectada con ninguna otra obra.")
+        return
+    print(f"\nObras relacionadas con '{obra.titulo}', de la más cercana a la más lejana:")
+    distancia_actual = 0
+    for otra, distancia in resultado:
+        if distancia != distancia_actual:
+            distancia_actual = distancia
+            print(f"\n  A {distancia} paso(s):")
+        print(f"    - {otra.titulo}")
+
+
+def _explorar_en_profundidad(gestor):
+    obra = _pedir_obra(gestor, "Obra de partida (título o parte del título): ")
+    if obra is None:
+        return
+    recorrido = gestor.explorar_en_profundidad(obra.titulo)
+    if len(recorrido) == 1:
+        print(f"\n'{obra.titulo}' no está conectada con ninguna otra obra.")
+        return
+    print(f"\nExploración en profundidad desde '{obra.titulo}'")
+    print("(cada sangría es un paso más adentro; al llegar al fondo, vuelve y prueba otro camino):\n")
+    for otra, profundidad in recorrido:
+        print("    " * profundidad + ("└── " if profundidad else "") + otra.titulo)
+    print(f"\nSe exploraron {len(recorrido)} obra(s).")
+
+
+def _ver_grupos_conectados(gestor):
+    grupos = gestor.grupos_conectados()
+    print(f"\nEl catálogo tiene {len(grupos)} grupo(s) de obras conectadas entre sí.")
+    print("Entre obras de grupos distintos no hay ningún camino.\n")
+    for numero, grupo in enumerate(grupos, start=1):
+        print(f"Grupo {numero} ({len(grupo)} obra(s)):")
+        for obra in grupo:
+            print(f"    - {obra.titulo}")
+
+
 def accion_explorar_conexiones(gestor):
     while True:
         print("\n--- EXPLORAR CONEXIONES ---")
@@ -227,7 +301,11 @@ def accion_explorar_conexiones(gestor):
         print("[b] Ver qué comparten dos obras")
         print("[c] Ver el grafo completo")
         print("[d] Ver estadísticas del grafo")
-        print("[e] Volver")
+        print("[e] Camino más corto entre dos obras (BFS)")
+        print("[f] Obras relacionadas por cercanía (BFS)")
+        print("[g] Explorar en profundidad desde una obra (DFS)")
+        print("[h] Ver grupos de obras conectadas (DFS)")
+        print("[i] Volver")
         opcion = input("Elegí: ").strip().lower()
         if opcion == "a":
             _ver_conectadas(gestor)
@@ -238,6 +316,14 @@ def accion_explorar_conexiones(gestor):
         elif opcion == "d":
             _ver_estadisticas_grafo(gestor)
         elif opcion == "e":
+            _ver_camino_mas_corto(gestor)
+        elif opcion == "f":
+            _ver_obras_por_distancia(gestor)
+        elif opcion == "g":
+            _explorar_en_profundidad(gestor)
+        elif opcion == "h":
+            _ver_grupos_conectados(gestor)
+        elif opcion == "i":
             break
         else:
             print("Opción inválida.")
