@@ -1,12 +1,13 @@
 import os
 from gestor_datos import GestorDatos
+from models.usuario import Usuario
 
 RUTA_DATOS = os.path.join(os.path.dirname(__file__), "data", "obras.json")
 
 
 def mostrar_menu():
     print("\n" + "=" * 45)
-    print("           MULTIVERSOGUIDE (v3)")
+    print("           MULTIVERSOGUIDE (v4)")
     print("      Tu guía antes del multiverso")
     print("=" * 45)
     print("[1] Buscar obra por título (parcial)")
@@ -15,7 +16,9 @@ def mostrar_menu():
     print("[4] Buscar obra por título exacto (árbol)")
     print("[5] Listar ordenado alfabéticamente (árbol)")
     print("[6] Explorar categorías (árbol general)")
-    print("[7] Salir")
+    print("[7] Top imprescindibles (ranking)")
+    print("[8] Marcar una obra como vista")
+    print("[9] Salir")
     print("=" * 45)
 
 
@@ -116,12 +119,45 @@ def accion_explorar_categorias(gestor):
             print("Opción inválida.")
 
 
+def accion_top_imprescindibles(gestor, usuario):
+    perfil = input("Perfil (casual/fan) [Enter = " + usuario.perfil + "]: ").strip().lower()
+    if perfil in Usuario.PERFILES_VALIDOS:
+        usuario.perfil = perfil
+    try:
+        n = int(input("¿Cuántas obras querés en el ranking? [Enter = 5]: ").strip() or 5)
+    except ValueError:
+        print("\nIngresá un número entero.")
+        return
+    ranking = gestor.top_n(n, perfil=usuario.perfil, excluir=usuario.obras_vistas)
+    if not ranking:
+        print("\nNo hay obras para mostrar (¿ya viste todo?).")
+        return
+    print(f"\nTOP {len(ranking)} imprescindibles - perfil {usuario.perfil}")
+    print("-" * 52)
+    for posicion, (puntaje, obra) in enumerate(ranking, start=1):
+        print(f"{posicion}. {obra.titulo:<45} {puntaje:>5.2f}")
+    if usuario.obras_vistas:
+        print(f"\n(Excluidas {len(usuario.obras_vistas)} obra(s) que ya viste)")
+
+
+def accion_marcar_vista(gestor, usuario):
+    titulo = input("Título EXACTO de la obra que ya viste: ")
+    obra = gestor.buscar_exacto_arbol(titulo)
+    if obra is None:
+        print("\nNo se encontró esa obra.")
+        return
+    usuario.marcar_vista(obra.titulo)
+    print(f"\nListo, '{obra.titulo}' queda marcada como vista.")
+
+
 def main():
     try:
         gestor = GestorDatos(RUTA_DATOS)
     except FileNotFoundError as error:
         print(f"Error al iniciar: {error}")
         return
+
+    usuario = Usuario("Invitado", perfil="casual")
 
     acciones = {
         "1": accion_buscar,
@@ -136,9 +172,13 @@ def main():
         mostrar_menu()
         opcion = input("Elegí una opción: ").strip()
 
-        if opcion == "7":
+        if opcion == "9":
             print("¡Hasta la próxima, viajero del multiverso!")
             break
+        elif opcion == "7":
+            accion_top_imprescindibles(gestor, usuario)
+        elif opcion == "8":
+            accion_marcar_vista(gestor, usuario)
         elif opcion in acciones:
             acciones[opcion](gestor)
         else:

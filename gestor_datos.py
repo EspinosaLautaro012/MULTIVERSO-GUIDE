@@ -3,6 +3,8 @@ import os
 from models.obra import Obra
 from busqueda.arbol import ArbolBusquedaObras
 from busqueda.arbol_general import ArbolGeneral
+from busqueda.heap import HeapMaximos
+from busqueda.prioridad import calcular_prioridad
 
 NOMBRES_TIPO = {"pelicula": "Películas", "serie": "Series", "comic": "Cómics"}
 
@@ -122,3 +124,21 @@ class GestorDatos:
     @property
     def jerarquia(self):
         return self._jerarquia
+
+    # --- Ranking de imprescindibles (TP6, heap) ---
+    def top_n(self, n, perfil="casual", excluir=None):
+        """Devuelve las n obras más prioritarias para el perfil dado, como
+        lista de (puntaje, obra) de mayor a menor.
+
+        Se arma una heap con todas las obras (O(n)) y se extraen solo las n
+        primeras (O(n log m)), en vez de ordenar el catálogo completo cada
+        vez. 'excluir' es una lista de títulos que no deben aparecer
+        (por ejemplo, las obras que el usuario ya vio)."""
+        excluir = set(excluir or [])
+        elementos = [
+            (calcular_prioridad(obra, perfil), obra)
+            for obra in self._obras
+            if obra.titulo not in excluir
+        ]
+        heap = HeapMaximos.desde_lista(elementos)
+        return heap.top_n(n)
