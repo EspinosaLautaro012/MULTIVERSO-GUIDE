@@ -1,7 +1,9 @@
 import json
 import os
+import re
+import unicodedata
 from models.obra import Obra
-from busqueda.arbol import ArbolBusquedaObras
+from busqueda.avl import ArbolAVL
 from busqueda.arbol_general import ArbolGeneral
 from busqueda.heap import HeapMaximos
 from busqueda.grafo import Grafo, construir_grafo_por_personajes
@@ -27,21 +29,48 @@ def saga_de(fase):
     return fase
 
 
+def normalizar_texto(texto):
+    """Pasa un texto a minúsculas, sin tildes y con todo lo que no sea letra
+    o número reemplazado por un espacio. Sirve para comparar lo que escribe
+    el usuario con los títulos sin que importen las mayúsculas, las tildes
+    ni la puntuación (guiones, dos puntos, asteriscos, etc.)."""
+    sin_tildes = "".join(
+        c for c in unicodedata.normalize("NFD", texto.lower())
+        if unicodedata.category(c) != "Mn"
+    )
+    return re.sub(r"[^a-z0-9]+", " ", sin_tildes).strip()
+
+
+def interpretar_anios(texto):
+    """Interpreta un año ('2021') o un rango de años ('2018-2022' o '2018 a 2022').
+    Devuelve (desde, hasta) o None si el texto no es un año ni un rango."""
+    m = re.fullmatch(r"\s*(\d{4})\s*(?:(?:-|–|a)\s*(\d{4}))?\s*", texto)
+    if not m:
+        return None
+    desde = int(m.group(1))
+    hasta = int(m.group(2)) if m.group(2) else desde
+    return (desde, hasta) if desde <= hasta else (hasta, desde)
+
+
 class GestorDatos:
     """Carga las obras desde un archivo JSON y ofrece las operaciones
     principales sobre esos datos: buscar, listar y filtrar.
 
     Desde el TP3, además de la lista plana de obras, se arma un árbol
-    binario de búsqueda (ordenado por título) que se usa para la
-    búsqueda exacta y para listar ordenado — ya no es un árbol aislado
-    de prueba, sino parte real del flujo de datos de la app."""
+    de búsqueda (ordenado por título) que se usa para la búsqueda exacta
+    y para listar ordenado. Es un árbol AVL (TP4): tiene la misma
+    interfaz que el árbol binario del TP3 (insertar, buscar,
+    recorrido_inorder), pero se equilibra solo y no se degenera aunque
+    los títulos se carguen ya ordenados."""
 
     def __init__(self, ruta_json):
         self._ruta_json = ruta_json
         self._obras = []
-        self._arbol = ArbolBusquedaObras()
+        self._arbol = ArbolAVL()
         self._jerarquia = ArbolGeneral("Marvel")
         self._grafo = Grafo()
+        self._rutas = {}
+        self._originales = {}   # titulo en espanol -> titulo original (solo para buscar)
         self._cargar_datos()
 
     def _cargar_datos(self):
@@ -60,15 +89,22 @@ class GestorDatos:
                 fase=item["fase"],
                 rating=item["rating"],
                 personajes=item.get("personajes", []),
+                descripcion=item.get("descripcion",""),
             )
             for item in datos
         ]
+
+        self._originales = {
+            item["titulo"]: item["titulo_original"]
+            for item in datos if item.get("titulo_original")
+        }
 
         for obra in self._obras:
             self._arbol.insertar(obra)
 
         self._construir_jerarquia()
         self._construir_grafo()
+        self._cargar_rutas()
 
     def _construir_jerarquia(self):
         """Arma el árbol general: Marvel -> Saga -> Tipo -> Obra."""
@@ -84,9 +120,44 @@ class GestorDatos:
         return list(self._obras)
 
     # --- Operación 1: Buscar (coincidencia parcial, recorrido secuencial) ---
+    def _nombres_de(self, obra):
+        """Títulos con los que se puede buscar una obra: el título en español
+        y, si lo tiene, el título original (por ejemplo, en inglés)."""
+        original = self._originales.get(obra.titulo)
+        return [obra.titulo, original] if original else [obra.titulo]
+
     def buscar_por_titulo(self, texto):
-        texto = texto.lower().strip()
-        return [obra for obra in self._obras if texto in obra.titulo.lower()]
+        """Busca obras cuyo título coincida con el texto, aunque esté
+        incompleto. Ignora mayúsculas, tildes y puntuación, acepta las
+        palabras en cualquier orden o pegadas ('avengers endgame',
+        'spiderman', 'x men') y también entiende el título original
+        ('no way home' encuentra 'Spider-Man: Sin camino a casa')."""
+        consulta = normalizar_texto(texto)
+        palabras = consulta.split()
+        pegada = consulta.replace(" ", "")
+        resultado = []
+        for obra in self._obras:
+            for nombre in self._nombres_de(obra):
+                titulo = normalizar_texto(nombre)
+                if all(p in titulo for p in palabras) or pegada in titulo.replace(" ", ""):
+                    resultado.append(obra)
+                    break
+        return resultado
+
+    def titulo_exacto(self, texto):
+        """Devuelve la obra cuyo título es el texto escrito, ignorando
+        mayúsculas, tildes, signos y espacios ('avengers endgame' y
+        'Avengers: Endgame' son el mismo título). También vale el título
+        original ('ant-man' encuentra 'Ant-Man: El hombre hormiga').
+        Devuelve None si ninguna coincide exactamente."""
+        buscado = normalizar_texto(texto).replace(" ", "")
+        if not buscado:
+            return None
+        for obra in self._obras:
+            for nombre in self._nombres_de(obra):
+                if normalizar_texto(nombre).replace(" ", "") == buscado:
+                    return obra
+        return None
 
     # --- Búsqueda exacta usando el árbol (TP3) ---
     def buscar_exacto_arbol(self, titulo):
@@ -109,18 +180,31 @@ class GestorDatos:
         return list(self._obras)
 
     # --- Operación 3: Filtrar ---
-    def filtrar(self, tipo=None, fase=None, personaje=None):
+    def filtrar(self, tipo=None, fase=None, personaje=None, anio_desde=None, anio_hasta=None):
         resultado = self._obras
 
         if tipo:
-            resultado = [o for o in resultado if o.tipo.lower() == tipo.lower()]
+            # 'película', 'peliculas' y 'Pelicula' son lo mismo (sin tildes ni plural)
+            buscado = normalizar_texto(tipo)
+            if buscado.endswith("s"):
+                buscado = buscado[:-1]
+            resultado = [o for o in resultado if normalizar_texto(o.tipo) == buscado]
         if fase:
-            resultado = [o for o in resultado if fase.lower() in o.fase.lower()]
-        if personaje:
+            buscada = normalizar_texto(fase)
             resultado = [
                 o for o in resultado
-                if any(personaje.lower() in p.lower() for p in o.personajes)
+                if buscada in normalizar_texto(o.fase) or buscada in normalizar_texto(saga_de(o.fase))
             ]
+        if personaje:
+            buscado = normalizar_texto(personaje)
+            resultado = [
+                o for o in resultado
+                if any(buscado in normalizar_texto(p) for p in o.personajes)
+            ]
+        if anio_desde is not None:
+            resultado = [o for o in resultado if o.anio >= anio_desde]
+        if anio_hasta is not None:
+            resultado = [o for o in resultado if o.anio <= anio_hasta]
 
         return resultado
 
@@ -140,7 +224,7 @@ class GestorDatos:
         (por ejemplo, las obras que el usuario ya vio)."""
         excluir = set(excluir or [])
         elementos = [
-            (calcular_prioridad(obra, perfil), obra)
+            (calcular_prioridad(obra, perfil, self._relevancia(obra, perfil)), obra)
             for obra in self._obras
             if obra.titulo not in excluir
         ]
@@ -205,3 +289,59 @@ class GestorDatos:
         ]
         grupos.sort(key=len, reverse=True)
         return grupos
+
+    # --- Rutas recomendadas por perfil (data/rutas.json) ---
+    def _cargar_rutas(self):
+        """Carga las rutas recomendadas (una por perfil: casual y fan), si
+        existe data/rutas.json. Cada ruta es una lista de secciones con
+        títulos de obras, en el orden en que conviene verlas. Se valida
+        que todos los títulos existan en obras.json."""
+        archivo_rutas = os.path.join(os.path.dirname(self._ruta_json), "rutas.json")
+        if not os.path.exists(archivo_rutas):
+            return
+        with open(archivo_rutas, "r", encoding="utf-8") as archivo:
+            datos = json.load(archivo)
+
+        por_titulo = {obra.titulo: obra for obra in self._obras}
+
+        def obra_de(titulo):
+            if titulo not in por_titulo:
+                raise ValueError(f"rutas.json menciona una obra que no está en obras.json: {titulo}")
+            return por_titulo[titulo]
+
+        for perfil, ruta in datos.items():
+            secciones = [
+                (seccion["titulo"], [obra_de(t) for t in seccion["obras"]])
+                for seccion in ruta["secciones"]
+            ]
+            obras_de_la_ruta = [obra for _, obras in secciones for obra in obras]
+            self._rutas[perfil] = {
+                "nombre": ruta["nombre"],
+                "objetivo": ruta.get("objetivo", ""),
+                "cierre": ruta.get("cierre", ""),
+                "secciones": secciones,
+                "obras": obras_de_la_ruta,
+                "titulos": {obra.titulo for obra in obras_de_la_ruta},
+                "prioridades": {obra_de(t).titulo for t in ruta.get("prioridades", [])},
+                "opcionales": {obra_de(t).titulo for t in ruta.get("opcionales", [])},
+                "puntaje_ruta": ruta.get("puntaje_ruta", 0),
+                "puntaje_prioridad": ruta.get("puntaje_prioridad", 0),
+            }
+
+    def ruta(self, perfil):
+        """Ruta recomendada para un perfil ('casual' o 'fan'), o None si no hay."""
+        return self._rutas.get(perfil)
+
+    def _relevancia(self, obra, perfil):
+        """Qué tan importante es una obra en la ruta del perfil (0 a 10).
+        Las prioridades absolutas valen lo máximo; el resto de la ruta
+        vale lo que indique el archivo; fuera de la ruta, 0."""
+        ruta = self._rutas.get(perfil)
+        if ruta is None:
+            return 0.0
+        if obra.titulo in ruta["prioridades"]:
+            return float(ruta["puntaje_prioridad"])
+        if obra.titulo in ruta["titulos"]:
+            return float(ruta["puntaje_ruta"])
+        return 0.0
+
